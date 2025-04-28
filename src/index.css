@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -98,4 +99,43 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom styles for IPTV player */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Hide scrollbars but allow scrolling */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+/* Custom video player controls */
+video::-webkit-media-controls {
+  display: none !important;
+}
+
+/* Fullscreen video styles */
+video:fullscreen {
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom spinner animation */
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spinner 1s linear infinite;
 }
