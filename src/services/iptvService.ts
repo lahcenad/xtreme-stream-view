@@ -22,10 +22,15 @@ const API_ENDPOINTS = {
     `${credentials.url}/player_api.php?username=${credentials.username}&password=${credentials.password}&action=get_series&category_id=${category_id}`,
   
   GET_STREAM_URL: (credentials: XtremeCredentials, stream_id: string, stream_type: string) => {
+    // Fix URL construction to ensure proper format and protocol
+    const baseUrl = credentials.url.endsWith('/') 
+      ? credentials.url.slice(0, -1) 
+      : credentials.url;
+      
     if (stream_type === "live") {
-      return `${credentials.url}/live/${credentials.username}/${credentials.password}/${stream_id}.m3u8`;
+      return `${baseUrl}/live/${credentials.username}/${credentials.password}/${stream_id}.m3u8`;
     } else if (stream_type === "movie") {
-      return `${credentials.url}/movie/${credentials.username}/${credentials.password}/${stream_id}.mp4`;
+      return `${baseUrl}/movie/${credentials.username}/${credentials.password}/${stream_id}.mp4`;
     }
     return "";
   },
@@ -150,12 +155,19 @@ export const iptvService = {
       }
       
       return data.map((item: any) => {
+        // Fix the stream_id handling
+        const streamId = item.stream_id || item.series_id;
+        
+        if (!streamId) {
+          console.warn("Missing stream ID in item:", item);
+        }
+        
         let stream: IPTVChannel = {
-          id: item.stream_id || item.series_id,
-          name: item.name,
+          id: streamId || `unknown-${Math.random().toString(36)}`,
+          name: item.name || "Unknown Channel",
           stream_url: streamType === "series" 
             ? "" // Series need additional API call to get actual stream
-            : API_ENDPOINTS.GET_STREAM_URL(credentials, item.stream_id, streamType),
+            : API_ENDPOINTS.GET_STREAM_URL(credentials, streamId, streamType),
           stream_icon: item.stream_icon || "",
           category_id: category.id
         };
@@ -164,6 +176,9 @@ export const iptvService = {
         if (streamType === "live" && item.epg_channel_id) {
           stream.epg_channel_id = item.epg_channel_id;
         }
+        
+        // Ensure stream URL is properly constructed
+        console.log(`Generated stream URL for ${stream.name}: ${stream.stream_url}`);
         
         return stream;
       });

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { IPTVChannel, PlayerState } from "@/types/iptv";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, Volume2, VolumeX, Tv } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, Tv, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -36,6 +36,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel }) => {
         toast.error("Failed to play content. Please try another channel.");
       });
     }
+  };
+
+  // Retry loading the stream
+  const retryStream = () => {
+    if (!videoRef.current || !channel) return;
+    
+    setPlayerState(prev => ({ ...prev, loading: true }));
+    
+    // Force reload of the video
+    videoRef.current.pause();
+    videoRef.current.removeAttribute('src');
+    videoRef.current.load();
+    
+    // Small delay to ensure the video element is reset
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.src = channel.stream_url;
+        videoRef.current.load();
+        videoRef.current.play().catch(error => {
+          console.error("Retry playback error:", error);
+          toast.error("Failed to play this channel. Please try another one.");
+          setPlayerState(prev => ({ ...prev, loading: false, isPlaying: false }));
+        });
+      }
+    }, 500);
+    
+    toast.info("Attempting to reconnect to stream...");
   };
 
   // Toggle mute
@@ -85,13 +112,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel }) => {
   useEffect(() => {
     if (!videoRef.current || !channel) return;
     
+    console.log(`Loading channel: ${channel.name}, URL: ${channel.stream_url}`);
     setPlayerState(prev => ({ ...prev, loading: true }));
     
+    // Clean up existing source
+    videoRef.current.pause();
+    videoRef.current.removeAttribute('src');
+    videoRef.current.load();
+    
+    // Set new source and play
     videoRef.current.src = channel.stream_url;
     videoRef.current.load();
     videoRef.current.play().catch(error => {
       console.error("Playback error:", error);
-      toast.error("Failed to play this channel. Please try another one.");
+      toast.error("Failed to play this channel. Please try another one or retry.");
       setPlayerState(prev => ({ ...prev, loading: false, isPlaying: false }));
     });
     
@@ -119,10 +153,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel }) => {
     };
     const onWaiting = () => setPlayerState(prev => ({ ...prev, loading: true }));
     const onPlaying = () => setPlayerState(prev => ({ ...prev, loading: false }));
-    const onError = () => {
-      console.error("Video error");
+    const onError = (e: Event) => {
+      console.error("Video error:", e);
       setPlayerState(prev => ({ ...prev, loading: false }));
-      toast.error("Stream error. Please try another channel.");
+      toast.error("Stream error. Please try another channel or retry.");
     };
     
     video.addEventListener("play", onPlay);
@@ -179,6 +213,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel }) => {
         ref={videoRef}
         className="w-full h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
+        playsInline
       >
         Your browser does not support the video tag.
       </video>
@@ -230,6 +265,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel }) => {
                 />
               </div>
             </div>
+            
+            {/* Retry button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={retryStream}
+              title="Retry stream"
+            >
+              <RefreshCw className="h-5 w-5" />
+            </Button>
           </div>
           
           {channel && (

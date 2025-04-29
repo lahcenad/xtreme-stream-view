@@ -1,11 +1,12 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { IPTVCategory, IPTVChannel } from "@/types/iptv";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tv, Film, ListVideo } from "lucide-react";
+import SearchBar from "./SearchBar";
 
 interface ChannelListProps {
   categories: IPTVCategory[];
@@ -31,9 +32,27 @@ const ChannelList: React.FC<ChannelListProps> = ({
   isLoading,
 }) => {
   const isMobile = useIsMobile();
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filteredChannels, setFilteredChannels] = useState<IPTVChannel[]>(channels);
+
+  // Update filtered channels when channels or search query changes
+  useEffect(() => {
+    if (!searchQuery) {
+      setFilteredChannels(channels);
+    } else {
+      const filtered = channels.filter(channel => 
+        channel.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredChannels(filtered);
+    }
+  }, [channels, searchQuery]);
 
   const handleChannelClick = (channel: IPTVChannel) => {
     onSelectChannel(channel);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
   const contentTypeIcons = {
@@ -66,6 +85,14 @@ const ChannelList: React.FC<ChannelListProps> = ({
             </TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+      
+      {/* Search Bar */}
+      <div className="px-2 pt-2">
+        <SearchBar 
+          onSearch={handleSearch}
+          placeholder={`Search ${contentType === 'live' ? 'channels' : contentType === 'movie' ? 'movies' : 'series'}...`}
+        />
       </div>
       
       {/* Categories */}
@@ -116,18 +143,19 @@ const ChannelList: React.FC<ChannelListProps> = ({
           <div className="h-full flex flex-col">
             <div className="p-2">
               <h3 className="font-medium text-sm text-iptv-text/70 px-2">
-                {channels.length} {contentType === "live" ? "Channels" : contentType === "movie" ? "Movies" : "Series"}
+                {filteredChannels.length} {contentType === "live" ? "Channels" : contentType === "movie" ? "Movies" : "Series"}
+                {searchQuery && <span> matching "{searchQuery}"</span>}
               </h3>
             </div>
 
             <ScrollArea className="flex-1">
               <div className="space-y-0.5 p-2">
-                {channels.length === 0 ? (
+                {filteredChannels.length === 0 ? (
                   <div className="flex justify-center items-center h-24 text-iptv-text/70">
-                    No content found
+                    {searchQuery ? "No matching content found" : "No content found"}
                   </div>
                 ) : (
-                  channels.map((channel) => (
+                  filteredChannels.map((channel) => (
                     <button
                       key={channel.id}
                       className={cn(
