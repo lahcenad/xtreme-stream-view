@@ -17,6 +17,7 @@ export interface IPTVChannel {
 export interface IPTVCategory {
   id: string;
   name: string;
+  category_type: "live" | "movie" | "series";
   channels?: IPTVChannel[];
 }
 
@@ -26,4 +27,17 @@ export interface PlayerState {
   currentTime: number;
   duration: number;
   loading: boolean;
+}
+
+export interface EPGProgram {
+  id: string;
+  title: string;
+  description?: string;
+  start_timestamp: number;
+  stop_timestamp: number;
+  channel_id: string;
+}
+
+export interface EPGData {
+  [channel_id: string]: EPGProgram[];
 }

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { IPTVCategory, IPTVChannel, XtremeCredentials } from "@/types/iptv";
+import { IPTVCategory, IPTVChannel, XtremeCredentials, EPGData } from "@/types/iptv";
 import { iptvService } from "@/services/iptvService";
 import { useLocalStorage } from "./useLocalStorage";
 import { toast } from "sonner";
@@ -18,6 +18,9 @@ export function useIPTV() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<IPTVChannel | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [contentType, setContentType] = useState<"live" | "movie" | "series">("live");
+  const [epgData, setEpgData] = useState<EPGData>({});
+  const [isLoadingEpg, setIsLoadingEpg] = useState<boolean>(false);
 
   // Login with Xtreme Codes credentials
   const login = async (creds: XtremeCredentials) => {
@@ -63,9 +66,12 @@ export function useIPTV() {
       const data = await iptvService.getCategories(credentials);
       setCategories(data);
       
+      // Filter by content type
+      const filteredCategories = data.filter(cat => cat.category_type === contentType);
+      
       // Select first category if available
-      if (data.length > 0 && !selectedCategory) {
-        setSelectedCategory(data[0].id);
+      if (filteredCategories.length > 0 && !selectedCategory) {
+        setSelectedCategory(filteredCategories[0].id);
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -80,7 +86,13 @@ export function useIPTV() {
     
     setIsLoading(true);
     try {
-      const data = await iptvService.getChannels(credentials, categoryId);
+      const category = categories.find(cat => cat.id === categoryId);
+      
+      if (!category) {
+        throw new Error("Category not found");
+      }
+      
+      const data = await iptvService.getChannels(credentials, category);
       setChannels(data);
       
       // Select first channel if available
@@ -94,6 +106,29 @@ export function useIPTV() {
     }
   };
 
+  // Fetch EPG data for selected channel
+  const fetchEpgData = async (channel: IPTVChannel) => {
+    if (!credentials || !channel.epg_channel_id) return;
+    
+    setIsLoadingEpg(true);
+    try {
+      const data = await iptvService.getEPG(credentials, channel.id);
+      setEpgData(prevData => ({...prevData, ...data}));
+    } catch (error) {
+      console.error("Error fetching EPG data:", error);
+    } finally {
+      setIsLoadingEpg(false);
+    }
+  };
+  
+  // Change content type (live, movies, series)
+  const changeContentType = (type: "live" | "movie" | "series") => {
+    setContentType(type);
+    setSelectedCategory(null);
+    setSelectedChannel(null);
+    setChannels([]);
+  };
+
   // Select a category
   const selectCategory = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -102,6 +137,11 @@ export function useIPTV() {
   // Select a channel
   const selectChannel = (channel: IPTVChannel) => {
     setSelectedChannel(channel);
+    
+    // Fetch EPG data for live TV channels
+    if (contentType === "live" && channel.epg_channel_id) {
+      fetchEpgData(channel);
+    }
   };
 
   // Load initial data when logged in
@@ -109,7 +149,7 @@ export function useIPTV() {
     if (isLoggedIn && credentials) {
       fetchCategories();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, contentType]);
 
   // Load channels when category is selected
   useEffect(() => {
@@ -121,14 +161,18 @@ export function useIPTV() {
   return {
     isLoggedIn,
     isLoading,
-    categories,
+    categories: categories.filter(cat => cat.category_type === contentType),
     channels,
     selectedCategory,
     selectedChannel,
+    contentType,
+    epgData,
+    isLoadingEpg,
     login,
     logout,
     selectCategory,
     selectChannel,
+    changeContentType,
     fetchCategories,
     fetchChannels
   };
